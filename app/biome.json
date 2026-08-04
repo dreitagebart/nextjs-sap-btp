@@ -7,7 +7,13 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!node_modules", "!.next", "!dist", "!build"]
+    "includes": [
+      "**",
+      "!node_modules",
+      "!.next",
+      "!dist",
+      "!build"
+    ]
   },
   "formatter": {
     "enabled": true,
@@ -22,6 +28,17 @@
     "domains": {
       "next": "recommended",
       "react": "recommended"
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "enabled": true,
+      "trailingCommas": "none",
+      "semicolons": "asNeeded",
+      "arrowParentheses": "always",
+      "jsxQuoteStyle": "single",
+      "quoteStyle": "single",
+      "lineEnding": "crlf"
     }
   },
   "assist": {

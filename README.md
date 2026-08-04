@@ -1,36 +1,254 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# nextjs-sap-btp
 
-## Getting Started
+Polyglot app for SAP Business Technology Platform (BTP) — Next.js standalone frontend, Node.js backend, and SAP Approuter as the entry point, secured via XSUAA.
 
-First, run the development server:
+## Architecture
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```mermaid
+graph TD
+    Browser -->|HTTPS| Approuter["Approuter\n(router/)"]
+    Approuter -->|/api/* → dest: backend| Backend["Backend\n(backend/)"]
+    Approuter -->|/* → dest: app| Frontend["Next.js App\n(app/)"]
+    Approuter --- XSUAA["XSUAA\n(cap-uaa)"]
+    Backend --- XSUAA
+    Backend --- HANA["HANA HDI\n(cap-db)"]
+    Frontend --- XSUAA
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+All traffic enters through the Approuter. XSUAA tokens are validated there and forwarded as `Authorization: Bearer` headers to both downstream modules.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Components
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### `app/` — Next.js Frontend
 
-## Learn More
+| | |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Runtime | Bun 1.3.5 |
+| Build output | `output: 'standalone'` → `.next/standalone/` |
+| CF port | Read from `$PORT` env variable |
+| Auth | JWT decoded from forwarded Bearer token — see [app/src/lib/auth.ts](app/src/lib/auth.ts) |
 
-To learn more about Next.js, take a look at the following resources:
+The standalone build bundles all Node.js dependencies so the CF droplet needs no `npm install` at runtime.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Start locally:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+cd app
+bun install
+bun run dev
+```
 
-## Deploy on Vercel
+### `backend/` — Backend Service (mock)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+ElysiaJS mock server that stubs the API routes the approuter forwards under `/api/*`. Uses `@elysiajs/node` adapter so it runs on plain Node.js in CF (no Bun required at runtime). Intended to be replaced with a full SAP CAP service.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Endpoint | Response |
+|---|---|
+| `GET /` | `{ message: "Backend mock running" }` |
+| `GET /health` | `{ status: "ok", timestamp }` |
+| `GET /entities` | Array of 3 mock entities |
+
+Start locally:
+
+```bash
+cd backend
+bun install
+bun run dev        # port 3001, runs with Bun directly
+```
+
+Build for production (Node.js bundle used on CF):
+```bash
+bun run build      # outputs dist/index.js (bundled, no external deps)
+```
+
+### `router/` — SAP Approuter
+
+Entry point for all incoming traffic. Handles XSUAA authentication and proxies requests to the two downstream destinations.
+
+Routing rules ([router/xs-app.json](router/xs-app.json)):
+
+| Source | Destination | Auth |
+|---|---|---|
+| `/api/*` | `backend` | XSUAA + CSRF |
+| `/*` | `app` | XSUAA |
+
+[router/xs-app.local.json](router/xs-app.local.json) is used in the local compose stack — disables XSUAA so the stack runs without a BTP account.
+
+### `manifest.yml` — CF Docker Deployment
+
+Cloud Foundry push manifest for deploying pre-built container images. Replace `<OWNER>` and `<CF_DOMAIN>` before use.
+
+| App | Image | CF memory |
+|---|---|---|
+| `my-btp-project-backend` | `ghcr.io/<OWNER>/my-btp-project-backend` | 256 MB |
+| `my-btp-project-app` | `ghcr.io/<OWNER>/my-btp-project-app` | 512 MB |
+| `my-btp-project-approuter` | `ghcr.io/<OWNER>/my-btp-project-approuter` | 128 MB |
+
+### `compose.yml` — Local Development
+
+Runs all three services locally as containers without XSUAA. The Approuter uses [router/xs-app.local.json](router/xs-app.local.json) (mounted read-only) and resolves destinations via compose service names.
+
+| Service | Port |
+|---|---|
+| `backend` | 3001 |
+| `app` | 3000 |
+| `approuter` | 5001 |
+
+### `mta.yaml` — Alternative: MTA Deployment
+
+Describes all three CF modules and two managed service instances for the MTA build tool (`mbt`). Use this if you prefer MTA over `cf push` with Docker images.
+
+| Module | CF memory | Path |
+|---|---|---|
+| `backend` | 256 MB | `backend/` |
+| `app` | 512 MB | `app/` (builds to `.next/standalone/`) |
+| `approuter` | 128 MB | `router/` |
+
+| Resource | Type | Plan |
+|---|---|---|
+| `cap-uaa` | XSUAA | `application` |
+| `cap-db` | HANA | `hdi-shared` |
+
+### `xs-security.json`
+
+Minimal XSUAA application security descriptor. Defines the `xsappname` used by the `cap-uaa` service instance. Extend with scopes and role-templates as the application grows.
+
+## Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) or [Podman](https://podman.io/) (for building and running containers)
+- [CF CLI](https://docs.cloudfoundry.org/cf-cli/) v8+
+- [Bun](https://bun.sh) ≥ 1.3.5 (used for build stages and app runtime image)
+- SAP BTP subaccount with Cloud Foundry environment enabled
+- HANA Cloud instance available in the target CF space (required for `cap-db` HDI container)
+- GitHub account for pushing images to `ghcr.io`
+
+**MTA deployment only:**
+- [MultiApps CF CLI Plugin](https://github.com/cloudfoundry/multiapps-cli-plugin): `cf install-plugin multiapps`
+- [MTA Build Tool](https://github.com/SAP/cloud-mta-build-tool) (`mbt`) v1.2+
+
+## BTP Activation for Docker Deployment
+
+By default, SAP BTP Cloud Foundry does not allow Docker images. A **Platform Admin** must enable it once per CF instance:
+
+```bash
+cf enable-feature-flag diego_docker
+```
+
+Verify it is active:
+```bash
+cf feature-flag diego_docker
+# → state: enabled
+```
+
+If you do not have Platform Admin rights, contact your BTP administrator.
+
+## Local Development
+
+### With containers (full stack)
+
+```bash
+# Build all images and start the full stack
+docker compose up --build
+# or with Podman:
+podman compose up --build
+```
+
+The Approuter is available at `http://localhost:5001`. Auth is disabled — no BTP account needed.
+
+### Without containers (per service)
+
+```bash
+# Backend (port 3001)
+cd backend && bun run dev
+
+# Frontend (port 3000)
+cd app && bun run dev
+```
+
+## Docker Deployment on CF
+
+### 1. Create CF services
+
+```bash
+cf login -a <api-endpoint> -o <org> -s <space>
+
+cf create-service xsuaa application cap-uaa -c xs-security.json
+cf create-service hana hdi-shared cap-db
+```
+
+### 2. Build and push images
+
+```bash
+# Replace <OWNER> with your GitHub username
+export OWNER=<OWNER>
+
+docker build -f backend/Containerfile -t ghcr.io/$OWNER/my-btp-project-backend:latest backend/
+docker build -f app/Containerfile     -t ghcr.io/$OWNER/my-btp-project-app:latest     app/
+docker build -f router/Containerfile  -t ghcr.io/$OWNER/my-btp-project-approuter:latest router/
+
+docker push ghcr.io/$OWNER/my-btp-project-backend:latest
+docker push ghcr.io/$OWNER/my-btp-project-app:latest
+docker push ghcr.io/$OWNER/my-btp-project-approuter:latest
+```
+
+> For private images, log in first: `docker login ghcr.io -u <OWNER> --password-stdin`
+
+### 3. Configure `manifest.yml`
+
+Edit [manifest.yml](manifest.yml) and replace the two placeholders:
+
+| Placeholder | Value |
+|---|---|
+| `<OWNER>` | Your GitHub username |
+| `<CF_DOMAIN>` | Your CF apps domain, e.g. `cfapps.eu10.hana.ondemand.com` |
+
+### 4. Push to CF
+
+```bash
+# For private GHCR images, provide credentials:
+cf push --docker-username <OWNER> --docker-password <GHCR_TOKEN>
+
+# For public images:
+cf push
+```
+
+All three apps are deployed and bound to `cap-uaa` and `cap-db` as defined in `manifest.yml`.
+
+## Alternative Deployment: MTA
+
+If you prefer MTA over individual `cf push`:
+
+```bash
+cf install-plugin multiapps
+mbt build --mtar my-btp-project.mtar
+cf deploy mta_archives/my-btp-project.mtar
+```
+
+## Known Issues
+
+### 1. Backend is a mock — no real CAP model
+
+`backend/` contains an ElysiaJS stub. Replace with a proper SAP CAP project:
+
+```bash
+cd backend
+cds init --add hana,xsuaa
+# add .cds data models and service definitions
+```
+
+### 2. `xs-security.json` has no scopes
+
+The file exists but is minimal. Add scopes and role-templates matching your CAP service annotations before deploying to production.
+
+### 3. JWT decoded without signature verification in `auth.ts`
+
+`jwt-decode` skips signature validation. This is safe **only** because the Approuter validates the token before forwarding. Never expose `app/` directly without the Approuter in front.
+
+### 4. `console.log` in `auth.ts` leaks decoded JWT
+
+Remove before deploying to production:
+
+```diff
+- console.log('decoded:', decoded)
+```

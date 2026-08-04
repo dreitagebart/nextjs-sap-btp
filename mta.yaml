@@ -1,0 +1,112 @@
+ID: my-btp-project
+_schema-version: '3.1'
+version: 1.0.0
+description: "Polyglot Architecture with CAP Backend, Next.js Standalone Frontend, and Standalone Approuter"
+
+parameters:
+  enable-parallel-deployments: true
+
+modules:
+  # ------------------------------------------------------------
+  # 1. CAP BACKEND SERVICE
+  # ------------------------------------------------------------
+  - name: backend
+    type: nodejs
+    path: backend
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 256M
+      disk-quota: 512M
+      command: node dist/index.js
+    build-parameters:
+      builder: custom
+      commands:
+        - bun install
+        - bun build src/index.ts --target=node --outfile=dist/index.js --bundle
+    requires:
+      - name: cap-db
+      - name: cap-uaa
+    provides:
+      - name: cap-backend-api
+        properties:
+          url: '${default-url}'
+
+  # ------------------------------------------------------------
+  # 2. NEXT.JS STANDALONE FRONTEND MODULE
+  # ------------------------------------------------------------
+  - name: app
+    type: nodejs
+    path: app
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 512M
+      disk-quota: 1024M
+      command: node server.js
+    build-parameters:
+      builder: custom
+      commands:
+        # Bun (oder npm) lokal/CI nutzen zum Bauen des Standalone Out-Ordners
+        - bun install
+        - bun run build
+        # WICHTIG: Assets für Standalone Mode in den standalone Ordner kopieren
+        - cp -r public .next/standalone/public
+        - cp -r .next/static .next/standalone/.next/static
+      target-path: .next/standalone
+    requires:
+      - name: cap-uaa
+    provides:
+      - name: next-frontend-api
+        properties:
+          url: '${default-url}'
+
+  # ------------------------------------------------------------
+  # 3. STANDALONE APPROUTER MODULE (ENTRY POINT)
+  # ------------------------------------------------------------
+  - name: approuter
+    type: nodejs
+    path: router
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 128M
+      disk-quota: 256M
+      # Der Approuter erhält die Haupt-URL der Anwendung
+      routes:
+        - route: '${default-domain}'
+    requires:
+      - name: cap-uaa
+      # Verknüpfung der dynamischen URLs von CAP und Next.js
+      - name: cap-backend-api
+        group: destinations
+        properties:
+          name: backend
+          url: '~{url}'
+          forwardAuthToken: true
+      - name: next-frontend-api
+        group: destinations
+        properties:
+          name: app
+          url: '~{url}'
+          forwardAuthToken: true
+
+resources:
+  # ------------------------------------------------------------
+  # XSUAA SERVICE INSTANZ (Authentifizierung & Autorisierung)
+  # ------------------------------------------------------------
+  - name: cap-uaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json
+      config:
+        xsappname: my-btp-project-${space}
+        tenant-mode: dedicated
+
+  # ------------------------------------------------------------
+  # SAP HANA DATABASE INSTANZ
+  # ------------------------------------------------------------
+  - name: cap-db
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: hana
+      service-plan: hdi-shared

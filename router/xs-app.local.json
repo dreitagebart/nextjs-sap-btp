@@ -1,0 +1,17 @@
+{
+  "welcomeFile": "/",
+  "authenticationMethod": "none",
+  "routes": [
+    {
+      "source": "^/api/(.*)$",
+      "target": "/$1",
+      "destination": "backend",
+      "csrfProtection": false
+    },
+    {
+      "source": "^/(.*)$",
+      "target": "/$1",
+      "destination": "app"
+    }
+  ]
+}

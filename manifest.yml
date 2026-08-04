@@ -1,0 +1,34 @@
+---
+# Replace <OWNER> with your GitHub username and <CF_DOMAIN> with your CF apps domain
+# e.g. cfapps.eu10.hana.ondemand.com
+applications:
+  - name: my-btp-project-backend
+    docker:
+      image: ghcr.io/<OWNER>/my-btp-project-backend:latest
+    memory: 256M
+    disk_quota: 512M
+    services:
+      - cap-uaa
+      - cap-db
+
+  - name: my-btp-project-app
+    docker:
+      image: ghcr.io/<OWNER>/my-btp-project-app:latest
+    memory: 512M
+    disk_quota: 1024M
+    services:
+      - cap-uaa
+
+  - name: my-btp-project-approuter
+    docker:
+      image: ghcr.io/<OWNER>/my-btp-project-approuter:latest
+    memory: 128M
+    disk_quota: 256M
+    services:
+      - cap-uaa
+    env:
+      destinations: >
+        [
+          {"name":"backend","url":"https://my-btp-project-backend.<CF_DOMAIN>","forwardAuthToken":true},
+          {"name":"app","url":"https://my-btp-project-app.<CF_DOMAIN>","forwardAuthToken":true}
+        ]

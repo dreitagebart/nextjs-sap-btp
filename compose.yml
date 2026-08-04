@@ -1,0 +1,36 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Containerfile
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: "3001"
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Containerfile
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+
+  approuter:
+    build:
+      context: ./router
+      dockerfile: Containerfile
+    ports:
+      - "5001:5001"
+    environment:
+      PORT: "5001"
+      # destinations point to compose service names — no XSUAA auth in local mode
+      destinations: >-
+        [{"name":"backend","url":"http://backend:3001","forwardAuthToken":false},
+         {"name":"app","url":"http://app:3000","forwardAuthToken":false}]
+    volumes:
+      - ./router/xs-app.local.json:/app/xs-app.json:ro
+    depends_on:
+      - backend
+      - app

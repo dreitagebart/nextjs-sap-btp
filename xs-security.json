@@ -1,0 +1,12 @@
+{
+  "xsappname": "my-btp-project",
+  "tenant-mode": "dedicated",
+  "scopes": [],
+  "role-templates": [
+    {
+      "name": "Viewer",
+      "description": "View access",
+      "scope-references": []
+    }
+  ]
+}
