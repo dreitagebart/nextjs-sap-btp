@@ -1,10 +1,12 @@
 ---
 # Replace <OWNER> with your GitHub username and <CF_DOMAIN> with your CF apps domain
 # e.g. cfapps.eu10.hana.ondemand.com
+# run 'cf domains' to list your domains
 applications:
   - name: nextjs-sap-btp-backend
     docker:
       image: ghcr.io/<OWNER>/nextjs-sap-btp-backend:latest
+      username: <OWNER>
     memory: 256M
     disk_quota: 512M
     services:
@@ -13,6 +15,7 @@ applications:
   - name: nextjs-sap-btp-app
     docker:
       image: ghcr.io/<OWNER>/nextjs-sap-btp-app:latest
+      username: <OWNER>
     memory: 512M
     disk_quota: 1024M
     services:
@@ -21,6 +24,7 @@ applications:
   - name: nextjs-sap-btp-approuter
     docker:
       image: ghcr.io/<OWNER>/nextjs-sap-btp-approuter:latest
+      username: <OWNER>
     memory: 128M
     disk_quota: 256M
     services:

@@ -24,14 +24,14 @@ All traffic enters through the Approuter. XSUAA tokens are validated there and f
 | | |
 |---|---|
 | Framework | Next.js 16 (App Router) |
-| Runtime | Bun 1.3.5 |
+| Runtime | Node.js 22 (container runtime) |
 | Build output | `output: 'standalone'` → `.next/standalone/` |
 | CF port | Read from `$PORT` env variable |
 | Auth | JWT decoded from forwarded Bearer token — see [app/src/lib/auth.ts](app/src/lib/auth.ts) |
 
 The standalone build bundles all Node.js dependencies so the CF droplet needs no `npm install` at runtime.
 
-For container builds, the app is built in a Node.js builder stage and runs in a Bun runtime stage.
+For container builds, the app is built and run with Node.js to avoid Bun runtime incompatibilities in Next.js server output.
 
 Start locally:
 
@@ -120,7 +120,7 @@ Minimal XSUAA application security descriptor. Defines the `xsappname` used by t
 
 - [Docker](https://docs.docker.com/get-docker/) or [Podman](https://podman.io/) (for building and running containers)
 - [CF CLI](https://docs.cloudfoundry.org/cf-cli/) v8+
-- [Bun](https://bun.sh) ≥ 1.3.5 (used for backend build stage and app runtime image)
+- [Bun](https://bun.sh) ≥ 1.3.5 (used for backend build stage and optional local app dev)
 - SAP BTP subaccount with Cloud Foundry environment enabled
 - HANA Cloud instance (optional for current Docker flow; required only when enabling `cap-db` again)
 - GitHub account for pushing images to `ghcr.io`
@@ -209,8 +209,9 @@ Use `cf domains` to list your available CF domains.
 ### 4. Push to CF
 
 ```bash
-# For private GHCR images, provide credentials:
-cf push --docker-username <OWNER> --docker-password <GHCR_TOKEN>
+# For private GHCR images, set password token as env var:
+export CF_DOCKER_PASSWORD=<GHCR_TOKEN_WITH_READ_PACKAGES>
+cf push
 
 # For public images:
 cf push
@@ -225,10 +226,8 @@ If staging fails with `unable to retrieve auth token: invalid username/password:
 Use a GitHub token with package read permission:
 
 ```bash
-export OWNER=<YOUR_GITHUB_USERNAME>
-export GHCR_TOKEN=<GITHUB_TOKEN_WITH_READ_PACKAGES>
-
-cf push --docker-username "$OWNER" --docker-password "$GHCR_TOKEN"
+export CF_DOCKER_PASSWORD=<GITHUB_TOKEN_WITH_READ_PACKAGES>
+cf push
 ```
 
 Notes:
@@ -236,6 +235,7 @@ Notes:
 - If the token is used for image push as well, add `write:packages`.
 - If your GitHub org enforces SSO, authorize the token for that org.
 - If images are public, plain `cf push` works without docker credentials.
+- `--docker-username` can only be used together with `--docker-image` for single-app push, not with this multi-app manifest flow.
 
 ## Alternative Deployment: MTA
 
