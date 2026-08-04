@@ -122,7 +122,7 @@ Minimal XSUAA application security descriptor. Defines the `xsappname` used by t
 - [CF CLI](https://docs.cloudfoundry.org/cf-cli/) v8+
 - [Bun](https://bun.sh) ≥ 1.3.5 (used for backend build stage and app runtime image)
 - SAP BTP subaccount with Cloud Foundry environment enabled
-- HANA Cloud instance available in the target CF space (required for `cap-db` HDI container)
+- HANA Cloud instance (optional for current Docker flow; required only when enabling `cap-db` again)
 - GitHub account for pushing images to `ghcr.io`
 
 **MTA deployment only:**
@@ -176,7 +176,6 @@ cd app && bun run dev
 cf login -a <api-endpoint> -o <org> -s <space>
 
 cf create-service xsuaa application cap-uaa -c xs-security.json
-cf create-service hana hdi-shared cap-db
 ```
 
 ### 2. Build and push images
@@ -200,6 +199,8 @@ docker push ghcr.io/$OWNER/nextjs-sap-btp-approuter:latest
 
 Edit [manifest.yml](manifest.yml) and replace the two placeholders:
 
+Use `cf domains` to list your available CF domains.
+
 | Placeholder | Value |
 |---|---|
 | `<OWNER>` | Your GitHub username |
@@ -215,7 +216,26 @@ cf push --docker-username <OWNER> --docker-password <GHCR_TOKEN>
 cf push
 ```
 
-All three apps are deployed and bound to `cap-uaa` and `cap-db` as defined in `manifest.yml`.
+All three apps are deployed and bound to `cap-uaa` as defined in `manifest.yml`.
+
+### 5. Troubleshooting: GHCR unauthorized during staging
+
+If staging fails with `unable to retrieve auth token: invalid username/password: unauthorized`, Cloud Foundry cannot pull your image from GHCR.
+
+Use a GitHub token with package read permission:
+
+```bash
+export OWNER=<YOUR_GITHUB_USERNAME>
+export GHCR_TOKEN=<GITHUB_TOKEN_WITH_READ_PACKAGES>
+
+cf push --docker-username "$OWNER" --docker-password "$GHCR_TOKEN"
+```
+
+Notes:
+- For private GHCR images, token scope must include `read:packages`.
+- If the token is used for image push as well, add `write:packages`.
+- If your GitHub org enforces SSO, authorize the token for that org.
+- If images are public, plain `cf push` works without docker credentials.
 
 ## Alternative Deployment: MTA
 

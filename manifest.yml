@@ -9,7 +9,6 @@ applications:
     disk_quota: 512M
     services:
       - cap-uaa
-      - cap-db
 
   - name: nextjs-sap-btp-app
     docker:
