@@ -81,9 +81,9 @@ Cloud Foundry push manifest for deploying pre-built container images. Replace `<
 
 | App | Image | CF memory |
 |---|---|---|
-| `my-btp-project-backend` | `ghcr.io/<OWNER>/my-btp-project-backend` | 256 MB |
-| `my-btp-project-app` | `ghcr.io/<OWNER>/my-btp-project-app` | 512 MB |
-| `my-btp-project-approuter` | `ghcr.io/<OWNER>/my-btp-project-approuter` | 128 MB |
+| `nextjs-sap-btp-backend` | `ghcr.io/<OWNER>/nextjs-sap-btp-backend` | 256 MB |
+| `nextjs-sap-btp-app` | `ghcr.io/<OWNER>/nextjs-sap-btp-app` | 512 MB |
+| `nextjs-sap-btp-approuter` | `ghcr.io/<OWNER>/nextjs-sap-btp-approuter` | 128 MB |
 
 ### `compose.yml` — Local Development
 
@@ -118,7 +118,7 @@ Minimal XSUAA application security descriptor. Defines the `xsappname` used by t
 
 - [Docker](https://docs.docker.com/get-docker/) or [Podman](https://podman.io/) (for building and running containers)
 - [CF CLI](https://docs.cloudfoundry.org/cf-cli/) v8+
-- [Bun](https://bun.sh) ≥ 1.3.5 (used for build stages and app runtime image)
+- [Bun](https://bun.sh) ≥ 1.3.5 (used for backend build stage and app runtime image)
 - SAP BTP subaccount with Cloud Foundry environment enabled
 - HANA Cloud instance available in the target CF space (required for `cap-db` HDI container)
 - GitHub account for pushing images to `ghcr.io`
@@ -183,13 +183,13 @@ cf create-service hana hdi-shared cap-db
 # Replace <OWNER> with your GitHub username
 export OWNER=<OWNER>
 
-docker build -f backend/Containerfile -t ghcr.io/$OWNER/my-btp-project-backend:latest backend/
-docker build -f app/Containerfile     -t ghcr.io/$OWNER/my-btp-project-app:latest     app/
-docker build -f router/Containerfile  -t ghcr.io/$OWNER/my-btp-project-approuter:latest router/
+docker build -f backend/Containerfile -t ghcr.io/$OWNER/nextjs-sap-btp-backend:latest backend/
+docker build -f app/Containerfile     -t ghcr.io/$OWNER/nextjs-sap-btp-app:latest     app/
+docker build -f router/Containerfile  -t ghcr.io/$OWNER/nextjs-sap-btp-approuter:latest router/
 
-docker push ghcr.io/$OWNER/my-btp-project-backend:latest
-docker push ghcr.io/$OWNER/my-btp-project-app:latest
-docker push ghcr.io/$OWNER/my-btp-project-approuter:latest
+docker push ghcr.io/$OWNER/nextjs-sap-btp-backend:latest
+docker push ghcr.io/$OWNER/nextjs-sap-btp-app:latest
+docker push ghcr.io/$OWNER/nextjs-sap-btp-approuter:latest
 ```
 
 > For private images, log in first: `docker login ghcr.io -u <OWNER> --password-stdin`
