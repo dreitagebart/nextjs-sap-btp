@@ -4,7 +4,7 @@
 applications:
   - name: my-btp-project-backend
     docker:
-      image: ghcr.io/<OWNER>/my-btp-project-backend:latest
+      image: ghcr.io/<OWNER>/nextjs-sap-btp-backend:latest
     memory: 256M
     disk_quota: 512M
     services:
@@ -13,7 +13,7 @@ applications:
 
   - name: my-btp-project-app
     docker:
-      image: ghcr.io/<OWNER>/my-btp-project-app:latest
+      image: ghcr.io/<OWNER>/nextjs-sap-btp-app:latest
     memory: 512M
     disk_quota: 1024M
     services:
@@ -21,7 +21,7 @@ applications:
 
   - name: my-btp-project-approuter
     docker:
-      image: ghcr.io/<OWNER>/my-btp-project-approuter:latest
+      image: ghcr.io/<OWNER>/nextjs-sap-btp-approuter:latest
     memory: 128M
     disk_quota: 256M
     services:
@@ -29,6 +29,6 @@ applications:
     env:
       destinations: >
         [
-          {"name":"backend","url":"https://my-btp-project-backend.<CF_DOMAIN>","forwardAuthToken":true},
-          {"name":"app","url":"https://my-btp-project-app.<CF_DOMAIN>","forwardAuthToken":true}
+          {"name":"backend","url":"https://nextjs-sap-btp-backend.<CF_DOMAIN>","forwardAuthToken":true},
+          {"name":"app","url":"https://nextjs-sap-btp-app.<CF_DOMAIN>","forwardAuthToken":true}
         ]
