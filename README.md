@@ -31,6 +31,8 @@ All traffic enters through the Approuter. XSUAA tokens are validated there and f
 
 The standalone build bundles all Node.js dependencies so the CF droplet needs no `npm install` at runtime.
 
+For container builds, the app is built in a Node.js builder stage and runs in a Bun runtime stage.
+
 Start locally:
 
 ```bash
